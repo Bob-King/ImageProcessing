@@ -2,28 +2,47 @@ package com.mars.kjli.imageprocessing;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ImageView;
 
-import java.io.File;
 import java.io.IOException;
 
 
 public class ImageProcessingActivity extends Activity {
 
+    public static final String EXTRA_DETAILS = "com.mars.kjli.imageprocessing.DETAILS";
+    private static final String KEY_IMAGE_URI = "IMAGE_URI";
+    private static final String TAG = ImageProcessingActivity.class.getCanonicalName();
+    private static final int SELECT_IMAGE_REQUEST = 0;
+    private Uri mUri;
+    private Bitmap mBitmap;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_image_processing);
+        if (savedInstanceState != null) {
+            String uri = savedInstanceState.getString(KEY_IMAGE_URI);
+            if (uri != null) {
+                loadImageAsync(Uri.parse(uri));
+            }
+        }
     }
 
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (mUri != null) {
+            outState.putString(KEY_IMAGE_URI, mUri.toString());
+        }
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -63,22 +82,7 @@ public class ImageProcessingActivity extends Activity {
         switch (requestCode) {
             case SELECT_IMAGE_REQUEST:
                 if (resultCode == RESULT_OK) {
-                    /*
-                    Uri uri = data.getData();
-                    final String[] projection = { MediaStore.Images.Media.DATA };
-                    Cursor cursor = getApplicationContext().getContentResolver().query(data.getData(), projection, null, null, null);
-                    int index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
-                    cursor.moveToFirst();
-                    mBitmap = BitmapFactory.decodeFile(cursor.getString(index));
-                    */
-                    try {
-                        mUri = data.getData();
-                        mBitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), mUri);
-                        ImageView imageView = (ImageView) findViewById(R.id.image_view);
-                        imageView.setImageBitmap(mBitmap);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    loadImageAsync(data.getData());
                 }
                 break;
 
@@ -87,10 +91,27 @@ public class ImageProcessingActivity extends Activity {
         }
     }
 
-    public static final String EXTRA_DETAILS = "com.mars.kjli.imageprocessing.DETAILS";
+    private void loadImageAsync(Uri uri) {
+        mUri = uri;
+        new LoadImageTask().execute(uri);
+    }
 
-    private Uri mUri;
-    private Bitmap mBitmap;
+    private class LoadImageTask extends AsyncTask<Uri, Integer, Bitmap> {
+        @Override
+        protected Bitmap doInBackground(Uri... uris) {
+            try {
+                return MediaStore.Images.Media.getBitmap(getContentResolver(), uris[0]);
+            } catch (IOException e) {
+                Log.e(TAG, e.getMessage());
+                return null;
+            }
+        }
 
-    private static final int SELECT_IMAGE_REQUEST = 0;
+        @Override
+        protected void onPostExecute(Bitmap bitmap) {
+            mBitmap = bitmap;
+            ImageView imageView = (ImageView) findViewById(R.id.image_view);
+            imageView.setImageBitmap(mBitmap);
+        }
+    }
 }

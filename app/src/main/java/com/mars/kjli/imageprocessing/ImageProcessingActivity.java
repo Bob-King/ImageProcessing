@@ -6,23 +6,34 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ImageView;
+import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 
 public class ImageProcessingActivity extends Activity {
 
-    public static final String EXTRA_DETAILS = "com.mars.kjli.imageprocessing.DETAILS";
+    public static final String EXTRA_IMAGE_URL = "com.mars.kjli.imageprocessing.IMAGE_URL";
+    public static final String EXTRA_IMAGE_TYPE = "com.mars.kjli.imageprocessing.IMAGE_TYPE";
+    public static final String EXTRA_IMAGE_WIDTH = "com.mars.kjli.imageprocessing.IMAGE_WIDTH";
+    public static final String EXTRA_IMAGE_HEIGHT = "com.mars.kjli.imageprocessing.IMAGE_HEIGHT";
     private static final String KEY_IMAGE_URI = "IMAGE_URI";
     private static final String TAG = ImageProcessingActivity.class.getCanonicalName();
     private static final int SELECT_IMAGE_REQUEST = 0;
     private Uri mUri;
     private Bitmap mBitmap;
+    private State mState = State.Uninitialized;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,20 +71,71 @@ public class ImageProcessingActivity extends Activity {
         Intent intent;
         switch (id) {
             case R.id.action_open:
-                intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.setType("image/*");
-                startActivityForResult(Intent.createChooser(intent, getString(R.string.select_picture_activity_title)),
-                        SELECT_IMAGE_REQUEST);
+                if (mState != State.Working) {
+                    intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.setType("image/*");
+                    startActivityForResult(Intent.createChooser(intent, getString(R.string.select_picture_activity_title)),
+                            SELECT_IMAGE_REQUEST);
+                }
                 return true;
 
             case R.id.action_details:
-                intent = new Intent(this, ImageDetailsActivity.class);
-                intent.putExtra(EXTRA_DETAILS, mUri.toString());
-                startActivity(intent);
+                if (mState == State.Idle) {
+                    intent = new Intent(this, ImageDetailsActivity.class);
+                    intent.putExtra(EXTRA_IMAGE_URL, mUri.toString());
+                    intent.putExtra(EXTRA_IMAGE_TYPE, mBitmap.getConfig().toString());
+                    intent.putExtra(EXTRA_IMAGE_WIDTH, mBitmap.getWidth());
+                    intent.putExtra(EXTRA_IMAGE_HEIGHT, mBitmap.getHeight());
+                    startActivity(intent);
+                }
+                return true;
+
+            case R.id.action_histogram_equalize:
+                if (mState == State.Idle) {
+                    new HistogramEqualizeTask().execute(mBitmap);
+                }
+                return true;
+
+            case R.id.action_about:
+                if (mState != State.Working) {
+                    intent = new Intent(this, AboutActivity.class);
+                    startActivity(intent);
+                }
+                return true;
+
+            case R.id.action_save:
+                if (mState == State.Idle) {
+                    saveBitmap();
+                }
                 return true;
 
             default:
                 return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void saveBitmap() {
+        FileOutputStream out = null;
+        try {
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMdd-HHmmss");
+            String path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES) + File.separator + "D" + simpleDateFormat.format(new Date()) + ".jpg";
+            Log.d(TAG, "Path to save image: " + path);
+            out = new FileOutputStream(path);
+            if (mBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)) {
+                Toast.makeText(this, path, Toast.LENGTH_SHORT).show();
+            }
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, e.getMessage());
+        } catch (IOException e) {
+            Log.e(TAG, e.getMessage());
+        } finally {
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (IOException e) {
+                    Log.e(TAG, e.getMessage());
+                }
+            }
         }
     }
 
@@ -93,10 +155,20 @@ public class ImageProcessingActivity extends Activity {
 
     private void loadImageAsync(Uri uri) {
         mUri = uri;
+        Log.d(TAG, "Load image from " + uri.toString());
         new LoadImageTask().execute(uri);
     }
 
+    private static enum State {
+        Uninitialized, Idle, Working
+    }
+
     private class LoadImageTask extends AsyncTask<Uri, Integer, Bitmap> {
+        @Override
+        protected void onPreExecute() {
+            mState = State.Working;
+        }
+
         @Override
         protected Bitmap doInBackground(Uri... uris) {
             try {
@@ -109,9 +181,52 @@ public class ImageProcessingActivity extends Activity {
 
         @Override
         protected void onPostExecute(Bitmap bitmap) {
-            mBitmap = bitmap;
-            ImageView imageView = (ImageView) findViewById(R.id.image_view);
-            imageView.setImageBitmap(mBitmap);
+            if (bitmap != null) {
+                mBitmap = bitmap;
+                ImageView imageView = (ImageView) findViewById(R.id.image_view);
+                imageView.setImageBitmap(mBitmap);
+            }
+
+            mState = mBitmap != null ? State.Idle : State.Uninitialized;
+        }
+    }
+
+    private class HistogramEqualizeTask extends AsyncTask<Bitmap, Intent, Bitmap> {
+        @Override
+        protected void onPreExecute() {
+            mState = State.Working;
+        }
+
+        @Override
+        protected Bitmap doInBackground(Bitmap... bitmaps) {
+            Bitmap bitmap = Bitmap.createBitmap(bitmaps[0].getWidth(), bitmaps[0].getHeight(), Bitmap.Config.ARGB_8888);
+            int[][] levels = new int[bitmap.getWidth()][bitmap.getHeight()];
+            for (int x = 0; x != levels.length; ++x) {
+                for (int y = 0; y != levels[x].length; ++y) {
+                    levels[x][y] = ImageLibrary.gray(bitmaps[0].getPixel(x, y));
+                }
+            }
+
+            ImageLibrary.histogramEqualize(levels);
+
+            for (int x = 0; x != levels.length; ++x) {
+                for (int y = 0; y != levels[x].length; ++y) {
+                    levels[x][y] = ImageLibrary.color(levels[x][y]);
+                    bitmap.setPixel(x, y, levels[x][y]);
+                }
+            }
+
+            return bitmap;
+        }
+
+        @Override
+        protected void onPostExecute(Bitmap bitmap) {
+            if (bitmap != null) {
+                mBitmap = bitmap;
+                ImageView imageView = (ImageView) findViewById(R.id.image_view);
+                imageView.setImageBitmap(mBitmap);
+            }
+            mState = State.Idle;
         }
     }
 }

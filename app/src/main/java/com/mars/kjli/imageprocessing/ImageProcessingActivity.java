@@ -200,19 +200,19 @@ public class ImageProcessingActivity extends Activity {
         @Override
         protected Bitmap doInBackground(Bitmap... bitmaps) {
             Bitmap bitmap = Bitmap.createBitmap(bitmaps[0].getWidth(), bitmaps[0].getHeight(), Bitmap.Config.ARGB_8888);
-            int[][] levels = new int[bitmap.getWidth()][bitmap.getHeight()];
-            for (int x = 0; x != levels.length; ++x) {
-                for (int y = 0; y != levels[x].length; ++y) {
-                    levels[x][y] = ImageLibrary.gray(bitmaps[0].getPixel(x, y));
+            int[][] gls = new int[bitmap.getWidth()][bitmap.getHeight()];
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.gray(bitmaps[0].getPixel(x, y));
                 }
             }
 
-            ImageLibrary.histogramEqualize(levels);
+            ImageLibrary.histogramEqualize(gls);
 
-            for (int x = 0; x != levels.length; ++x) {
-                for (int y = 0; y != levels[x].length; ++y) {
-                    levels[x][y] = ImageLibrary.color(levels[x][y]);
-                    bitmap.setPixel(x, y, levels[x][y]);
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.color(gls[x][y]);
+                    bitmap.setPixel(x, y, gls[x][y]);
                 }
             }
 

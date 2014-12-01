@@ -13,28 +13,28 @@ public abstract class ImageLibrary {
         return (0xff << 24) | (gray << 16) | (gray << 8) | gray;
     }
 
-    public static int[] histogram(int[][] levels) {
-        if (levels == null || levels.length <= 0) {
+    public static int[] histogram(int[][] gls) {
+        if (gls == null || gls.length <= 0) {
             throw new IllegalArgumentException();
         }
 
         int[] hg = new int[0x100];
 
-        for (int r = 0; r != levels.length; ++r) {
-            for (int c = 0; c != levels[r].length; ++c) {
-                ++hg[levels[r][c]];
+        for (int r = 0; r != gls.length; ++r) {
+            for (int c = 0; c != gls[r].length; ++c) {
+                ++hg[gls[r][c]];
             }
         }
 
         return hg;
     }
 
-    public static void histogramEqualize(int[][] levels) {
-        if (levels == null || levels.length <= 0) {
+    public static void histogramEqualize(int[][] gls) {
+        if (gls == null || gls.length <= 0) {
             throw new IllegalArgumentException();
         }
 
-        int[] hg = histogram(levels);
+        int[] hg = histogram(gls);
 
         int b = 0;
         int e = 0xff;
@@ -64,9 +64,9 @@ public abstract class ImageLibrary {
             map[i] = ((i - b) * scale) >> 10;
         }
 
-        for (int r = 0; r != levels.length; ++r) {
-            for (int c = 0; c != levels[r].length; ++c) {
-                levels[r][c] = map[levels[r][c]];
+        for (int r = 0; r != gls.length; ++r) {
+            for (int c = 0; c != gls[r].length; ++c) {
+                gls[r][c] = map[gls[r][c]];
             }
         }
     }

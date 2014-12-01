@@ -96,6 +96,12 @@ public class ImageProcessingActivity extends Activity {
                 }
                 return true;
 
+            case R.id.action_laplace_filter:
+                if (mState == State.Idle) {
+                    new LaplaceFilterTask(0).execute(mBitmap);
+                }
+                return true;
+
             case R.id.action_about:
                 if (mState != State.Working) {
                     intent = new Intent(this, AboutActivity.class);
@@ -191,32 +197,10 @@ public class ImageProcessingActivity extends Activity {
         }
     }
 
-    private class HistogramEqualizeTask extends AsyncTask<Bitmap, Intent, Bitmap> {
+    private abstract class ImageProcessingTask extends AsyncTask<Bitmap, Integer, Bitmap> {
         @Override
         protected void onPreExecute() {
             mState = State.Working;
-        }
-
-        @Override
-        protected Bitmap doInBackground(Bitmap... bitmaps) {
-            Bitmap bitmap = Bitmap.createBitmap(bitmaps[0].getWidth(), bitmaps[0].getHeight(), Bitmap.Config.ARGB_8888);
-            int[][] gls = new int[bitmap.getWidth()][bitmap.getHeight()];
-            for (int x = 0; x != gls.length; ++x) {
-                for (int y = 0; y != gls[x].length; ++y) {
-                    gls[x][y] = ImageLibrary.gray(bitmaps[0].getPixel(x, y));
-                }
-            }
-
-            ImageLibrary.histogramEqualize(gls);
-
-            for (int x = 0; x != gls.length; ++x) {
-                for (int y = 0; y != gls[x].length; ++y) {
-                    gls[x][y] = ImageLibrary.color(gls[x][y]);
-                    bitmap.setPixel(x, y, gls[x][y]);
-                }
-            }
-
-            return bitmap;
         }
 
         @Override
@@ -227,6 +211,66 @@ public class ImageProcessingActivity extends Activity {
                 imageView.setImageBitmap(mBitmap);
             }
             mState = State.Idle;
+        }
+    }
+
+    private class HistogramEqualizeTask extends ImageProcessingTask {
+        @Override
+        protected Bitmap doInBackground(Bitmap... bitmaps) {
+            Bitmap bitmap = Bitmap.createBitmap(bitmaps[0].getWidth(), bitmaps[0].getHeight(), Bitmap.Config.ARGB_8888);
+            int[][] gls = new int[bitmap.getWidth()][bitmap.getHeight()];
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.rgb2Gray(bitmaps[0].getPixel(x, y));
+                }
+            }
+
+            ImageLibrary.histogramEqualize(gls);
+
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.gray2RGB(gls[x][y]);
+                    bitmap.setPixel(x, y, gls[x][y]);
+                }
+            }
+
+            return bitmap;
+        }
+    }
+
+    private class LaplaceFilterTask extends ImageProcessingTask {
+        private final int mA;
+
+        LaplaceFilterTask(int a) {
+            mA = a;
+        }
+
+        @Override
+        protected Bitmap doInBackground(Bitmap... bitmaps) {
+            Bitmap bitmap = Bitmap.createBitmap(bitmaps[0].getWidth(), bitmaps[0].getHeight(), Bitmap.Config.ARGB_8888);
+            int[][] gls = new int[bitmap.getWidth()][bitmap.getHeight()];
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.rgb2Gray(bitmaps[0].getPixel(x, y));
+                }
+            }
+
+            int[][] filter = new int[][]{
+                    {-1, -1, -1},
+                    {-1, mA + 8, -1},
+                    {-1, -1, -1}
+            };
+
+            gls = ImageLibrary.imageFilter(gls, filter);
+
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.gray2RGB(gls[x][y]);
+                    bitmap.setPixel(x, y, gls[x][y]);
+                }
+            }
+
+            return bitmap;
         }
     }
 }

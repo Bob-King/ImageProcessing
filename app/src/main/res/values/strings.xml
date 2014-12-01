@@ -19,5 +19,6 @@
     <string name="email">do_as_i_want@hotmail.com</string>
     <string name="action_about">About</string>
     <string name="toast_file_saved">File saved!</string>
+    <string name="action_laplace_filter">Laplace Filter</string>
 
 </resources>

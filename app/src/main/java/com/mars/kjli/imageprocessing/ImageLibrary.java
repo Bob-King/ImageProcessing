@@ -11,7 +11,7 @@ public abstract class ImageLibrary {
         return (Color.red(color) * 306 + Color.green(color) * 601 + Color.blue(color) * 117) >> 10;
     }
 
-    public static int gray2RGB(int gray) {
+    public static int gray2Color(int gray) {
         return Color.rgb(gray, gray, gray);
     }
 
@@ -89,9 +89,9 @@ public abstract class ImageLibrary {
         final int N = filter.length;
 
         int sum = 0;
-        for (int r = 0; r != N; ++r) {
-            for (int c = 0; c != N; ++c) {
-                sum += filter[r][c];
+        for (int x = 0; x != N; ++x) {
+            for (int y = 0; y != N; ++y) {
+                sum += filter[x][y];
             }
         }
 
@@ -101,6 +101,9 @@ public abstract class ImageLibrary {
                 pixels[x][y] = gls[x][y];
             }
         }
+
+        int mi = Integer.MAX_VALUE;
+        int ma = Integer.MIN_VALUE;
 
         for (int x = N >> 1; x != gls.length - (N >> 1); ++x) {
             for (int y = N >> 1; y != gls[x].length - (N >> 1); ++y) {
@@ -113,6 +116,35 @@ public abstract class ImageLibrary {
 
                 if (sum != 0 && sum != 1) {
                     pixels[x][y] /= sum;
+                }
+
+                if (pixels[x][y] < mi) {
+                    mi = pixels[x][y];
+                }
+                if (pixels[x][y] > ma) {
+                    ma = pixels[x][y];
+                }
+            }
+        }
+
+        if (ma > mi) {
+            final int D = ma - mi;
+            for (int x = N >> 1; x != gls.length - (N >> 1); ++x) {
+                for (int y = N >> 1; y != gls[x].length - (N >> 1); ++y) {
+                    pixels[x][y] = (((pixels[x][y] - mi) << 10) * 255 / D) >> 10;
+                }
+            }
+        } else {
+            int v = gls[N >> 1][N >> 1];
+            if (v < 0) {
+                v = 0;
+            } else if (v > 0xff) {
+                v = 0xff;
+            }
+
+            for (int x = N >> 1; x != gls.length - (N >> 1); ++x) {
+                for (int y = N >> 1; y != gls[x].length - (N >> 1); ++y) {
+                    pixels[x][y] = v;
                 }
             }
         }

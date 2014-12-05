@@ -1,6 +1,7 @@
 package com.mars.kjli.imageprocessing;
 
 import android.app.Activity;
+import android.app.DialogFragment;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -22,7 +23,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 
-public class ImageProcessingActivity extends Activity {
+public class ImageProcessingActivity extends Activity implements ImageFilterFactorPickerDialogFragment.ImageFilterFactorPickerDialogListener {
 
     public static final String EXTRA_IMAGE_URL = "com.mars.kjli.imageprocessing.IMAGE_URL";
     public static final String EXTRA_IMAGE_TYPE = "com.mars.kjli.imageprocessing.IMAGE_TYPE";
@@ -98,7 +99,9 @@ public class ImageProcessingActivity extends Activity {
 
             case R.id.action_laplace_filter:
                 if (mState == State.Idle) {
-                    new LaplaceFilterTask(0).execute(mBitmap);
+                    DialogFragment dialogFragment = new ImageFilterFactorPickerDialogFragment();
+                    dialogFragment.show(getFragmentManager(), "image_filter_factor_picker");
+                    return true;
                 }
                 return true;
 
@@ -165,6 +168,27 @@ public class ImageProcessingActivity extends Activity {
         new LoadImageTask().execute(uri);
     }
 
+    @Override
+    public void OnFactorSelected(float factor) {
+        final int SCALE = 10;
+
+        int f = (int) (factor * SCALE) + 8 * SCALE;
+        int b = 1;
+
+        if ((f & 0xff) != 0) {
+            b = 10;
+        } else {
+            f /= 10;
+        }
+
+        new ImageFilterTask(new int[][]
+                {
+                        {-b, -b, -b},
+                        {-b, f, -b},
+                        {-b, -b, -b}
+                }).execute(mBitmap);
+    }
+
     private static enum State {
         Uninitialized, Idle, Working
     }
@@ -229,7 +253,7 @@ public class ImageProcessingActivity extends Activity {
 
             for (int x = 0; x != gls.length; ++x) {
                 for (int y = 0; y != gls[x].length; ++y) {
-                    gls[x][y] = ImageLibrary.gray2RGB(gls[x][y]);
+                    gls[x][y] = ImageLibrary.gray2Color(gls[x][y]);
                     bitmap.setPixel(x, y, gls[x][y]);
                 }
             }
@@ -238,11 +262,11 @@ public class ImageProcessingActivity extends Activity {
         }
     }
 
-    private class LaplaceFilterTask extends ImageProcessingTask {
-        private final int mA;
+    private class ImageFilterTask extends ImageProcessingTask {
+        private final int[][] mFilter;
 
-        LaplaceFilterTask(int a) {
-            mA = a;
+        ImageFilterTask(int[][] filter) {
+            mFilter = filter;
         }
 
         @Override
@@ -255,17 +279,13 @@ public class ImageProcessingActivity extends Activity {
                 }
             }
 
-            int[][] filter = new int[][]{
-                    {-1, -1, -1},
-                    {-1, mA + 8, -1},
-                    {-1, -1, -1}
-            };
-
-            gls = ImageLibrary.imageFilter(gls, filter);
+            gls = ImageLibrary.imageFilter(gls, mFilter);
 
             for (int x = 0; x != gls.length; ++x) {
                 for (int y = 0; y != gls[x].length; ++y) {
-                    gls[x][y] = ImageLibrary.gray2RGB(gls[x][y]);
+                    // Log.d(TAG, "<PIXELS>gls[" + x + "][" + y + "] = " + Integer.toHexString(gls[x][y]));
+                    gls[x][y] = ImageLibrary.gray2Color(gls[x][y]);
+                    // Log.d(TAG, ">PIXELS<gls[" + x + "][" + y + "] = " + Integer.toHexString(gls[x][y]));
                     bitmap.setPixel(x, y, gls[x][y]);
                 }
             }

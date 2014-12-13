@@ -22,5 +22,9 @@
     <string name="action_laplace_filter">Laplace Filter</string>
     <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="image_filter_pick_factor">Set the factor for image filter</string>
+    <string name="action_ideal_lowpass_filte">Ideal Lowpass Filter</string>
+    <string name="action_butterworth_lowpass_filte">Butterworth Lowpass Filter</string>
+    <string name="action_gaussian_lowpass_filte">Gaussian Lowpass Filter</string>
+    <string name="content_description">Image</string>
 
 </resources>

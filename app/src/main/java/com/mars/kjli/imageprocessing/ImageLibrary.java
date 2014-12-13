@@ -88,13 +88,6 @@ public abstract class ImageLibrary {
 
         final int N = filter.length;
 
-        int sum = 0;
-        for (int x = 0; x != N; ++x) {
-            for (int y = 0; y != N; ++y) {
-                sum += filter[x][y];
-            }
-        }
-
         int[][] pixels = new int[gls.length][gls[0].length];
         for (int x = 0; x != pixels.length; ++x) {
             for (int y = 0; y != pixels[x].length; ++y) {
@@ -114,10 +107,6 @@ public abstract class ImageLibrary {
                     }
                 }
 
-                if (sum != 0 && sum != 1) {
-                    pixels[x][y] /= sum;
-                }
-
                 if (pixels[x][y] < mi) {
                     mi = pixels[x][y];
                 }
@@ -131,7 +120,7 @@ public abstract class ImageLibrary {
             final int D = ma - mi;
             for (int x = N >> 1; x != gls.length - (N >> 1); ++x) {
                 for (int y = N >> 1; y != gls[x].length - (N >> 1); ++y) {
-                    pixels[x][y] = (((pixels[x][y] - mi) << 10) * 255 / D) >> 10;
+                    pixels[x][y] = (pixels[x][y] - mi) * 255 / D;
                 }
             }
         } else {
@@ -150,5 +139,72 @@ public abstract class ImageLibrary {
         }
 
         return pixels;
+    }
+
+    public static float[][][] dft(int[][] gls) {
+        if (gls == null
+                || gls.length == 0
+                || gls[0].length == 0) {
+            throw new IllegalArgumentException();
+        }
+
+        final int M = gls.length;
+        final int N = gls[0].length;
+        float[][][] d = new float[M][N][2];
+
+        final int MN = M * N;
+
+        for (int u = 0; u != M; ++u) {
+            for (int v = 0; v != N; ++v) {
+                for (int x = 0; x != M; ++x) {
+                    for (int y = 0; y != N; ++y) {
+                        float a = ((float) (u * x << 1)) / M;
+                        a += ((float) (v * y << 1)) / N;
+                        a *= Math.PI;
+                        float r = (float) (gls[x][y] * Math.cos(-a));
+                        float i = (float) (gls[x][y] * Math.sin(-a));
+                        d[u][v][0] += r;
+                        d[u][v][1] += i;
+                    }
+                }
+
+                d[u][v][0] /= MN;
+                d[u][v][1] /= MN;
+            }
+        }
+
+        return d;
+    }
+
+    public static int[][] idft(float[][][] dft) {
+        if (dft == null
+                || dft.length == 0
+                || dft[0].length == 0
+                || dft[0][0].length != 2) {
+            throw new IllegalArgumentException();
+        }
+
+        final int M = dft.length;
+        final int N = dft[0].length;
+
+        int[][] gls = new int[M][N];
+
+        for (int x = 0; x != M; ++x) {
+            for (int y = 0; y != N; ++y) {
+                for (int u = 0; u != M; ++u) {
+                    for (int v = 0; v != N; ++v) {
+                        float a = ((float) (u * x << 1)) / M;
+                        a += ((float) (v * y << 1)) / N;
+                        a *= Math.PI;
+                        float r = (float) Math.cos(a);
+                        float i = (float) Math.sin(a);
+
+                        gls[x][y] += (int) (r * dft[u][v][0] - i * dft[u][v][1]);
+                    }
+                }
+            }
+        }
+
+        return gls;
     }
 }

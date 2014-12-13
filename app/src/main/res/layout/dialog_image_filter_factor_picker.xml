@@ -10,6 +10,8 @@
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
         android:layout_margin="16dp"
-        android:hint="@string/image_filter_pick_factor"/>
+        android:hint="@string/image_filter_pick_factor"
+        android:numeric="decimal"
+        android:singleLine="true"/>
 
 </RelativeLayout>

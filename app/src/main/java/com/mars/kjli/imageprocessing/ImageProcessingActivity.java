@@ -74,6 +74,8 @@ public class ImageProcessingActivity extends Activity implements ImageFilterFact
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         Intent intent;
+        final int RADIUS_L = 50;
+        final int RADIUS_H = 15;
         switch (id) {
             case R.id.action_open:
                 if (mState != State.Working) {
@@ -109,15 +111,14 @@ public class ImageProcessingActivity extends Activity implements ImageFilterFact
                 }
                 return true;
 
-            case R.id.action_ideal_lowpass_filter:
+            case R.id.action_ideal_low_pass_filter:
                 if (mState == State.Idle) {
                     new ImageFrequencyFilterTask(new FrequencyFilter() {
                         @Override
                         public void filter(float[][][] data) {
                             final int M = data.length;
                             final int N = data[0].length;
-
-                            final int D0 = (int) (Math.PI * 50 * 50);
+                            final int D0 = (int) (Math.PI * RADIUS_L * RADIUS_L);
 
                             for (int u = 0; u != M; ++u) {
                                 for (int v = 0; v != M; ++v) {
@@ -134,17 +135,14 @@ public class ImageProcessingActivity extends Activity implements ImageFilterFact
                 }
                 return true;
 
-            case R.id.action_butterworth_lowpass_filter:
+            case R.id.action_butterworth_low_pass_filter:
                 if (mState == State.Idle) {
                     new ImageFrequencyFilterTask(new FrequencyFilter() {
                         @Override
                         public void filter(float[][][] data) {
                             final int M = data.length;
                             final int N = data[0].length;
-
-                            final int D0 = 50;
-                            final float F0 = (float) (Math.PI * D0 * D0);
-
+                            final float D0 = (float) (Math.PI * RADIUS_L * RADIUS_L);
                             final int POWER = 1;
 
                             for (int u = 0; u != M; ++u) {
@@ -152,7 +150,7 @@ public class ImageProcessingActivity extends Activity implements ImageFilterFact
                                     int dw = Math.abs(u - M / 2);
                                     int dh = Math.abs(v - N / 2);
                                     float f = dw * dw + dh * dh;
-                                    f /= F0;
+                                    f /= D0;
                                     f = (float) Math.pow(f, POWER);
                                     f = 1.0f / (1.0f + f);
                                     data[u][v][0] *= f;
@@ -164,24 +162,100 @@ public class ImageProcessingActivity extends Activity implements ImageFilterFact
                 }
                 return true;
 
-            case R.id.action_gaussian_lowpass_filter:
+            case R.id.action_gaussian_low_pass_filter:
                 if (mState == State.Idle) {
                     new ImageFrequencyFilterTask(new FrequencyFilter() {
                         @Override
                         public void filter(float[][][] data) {
                             final int M = data.length;
                             final int N = data[0].length;
-
-                            final int D0 = 50;
-                            final float F0 = (float) (Math.PI * D0 * D0);
+                            final float D0 = (float) (Math.PI * RADIUS_L * RADIUS_L);
 
                             for (int u = 0; u != M; ++u) {
                                 for (int v = 0; v != M; ++v) {
                                     int dw = Math.abs(u - M / 2);
                                     int dh = Math.abs(v - N / 2);
                                     float f = dw * dw + dh * dh;
-                                    f /= 2 * F0;
+                                    f /= 2 * D0;
                                     f = (float) Math.pow(Math.E, -f);
+                                    data[u][v][0] *= f;
+                                    data[u][v][1] *= f;
+                                }
+                            }
+                        }
+                    }).execute(mBitmap);
+                }
+                return true;
+
+
+            case R.id.action_ideal_high_pass_filter:
+                if (mState == State.Idle) {
+                    new ImageFrequencyFilterTask(new FrequencyFilter() {
+                        @Override
+                        public void filter(float[][][] data) {
+                            final int M = data.length;
+                            final int N = data[0].length;
+                            final int D0 = (int) (Math.PI * RADIUS_H * RADIUS_H);
+
+                            for (int u = 0; u != M; ++u) {
+                                for (int v = 0; v != M; ++v) {
+                                    int dw = Math.abs(u - M / 2);
+                                    int dh = Math.abs(v - N / 2);
+                                    if (dw * dw + dh * dh <= D0) {
+                                        data[u][v][0] = 0.0f;
+                                        data[u][v][1] = 0.0f;
+                                    }
+                                }
+                            }
+                        }
+                    }).execute(mBitmap);
+                }
+                return true;
+
+            case R.id.action_butterworth_high_pass_filter:
+                if (mState == State.Idle) {
+                    new ImageFrequencyFilterTask(new FrequencyFilter() {
+                        @Override
+                        public void filter(float[][][] data) {
+                            final int M = data.length;
+                            final int N = data[0].length;
+                            final float D0 = (float) (Math.PI * RADIUS_H * RADIUS_H);
+                            final int POWER = 1;
+
+                            for (int u = 0; u != M; ++u) {
+                                for (int v = 0; v != M; ++v) {
+                                    int dw = Math.abs(u - M / 2);
+                                    int dh = Math.abs(v - N / 2);
+                                    float f = dw * dw + dh * dh;
+                                    f = D0 / f;
+                                    f = (float) Math.pow(f, POWER);
+                                    f = 1.0f / (1.0f + f);
+                                    data[u][v][0] *= f;
+                                    data[u][v][1] *= f;
+                                }
+                            }
+                        }
+                    }).execute(mBitmap);
+                }
+                return true;
+
+            case R.id.action_gaussian_high_pass_filter:
+                if (mState == State.Idle) {
+                    new ImageFrequencyFilterTask(new FrequencyFilter() {
+                        @Override
+                        public void filter(float[][][] data) {
+                            final int M = data.length;
+                            final int N = data[0].length;
+                            final float D0 = (float) (Math.PI * RADIUS_H * RADIUS_H);
+
+                            for (int u = 0; u != M; ++u) {
+                                for (int v = 0; v != M; ++v) {
+                                    int dw = Math.abs(u - M / 2);
+                                    int dh = Math.abs(v - N / 2);
+                                    float f = dw * dw + dh * dh;
+                                    f /= 2 * D0;
+                                    f = (float) Math.pow(Math.E, -f);
+                                    f = 1.0f - f;
                                     data[u][v][0] *= f;
                                     data[u][v][1] *= f;
                                 }

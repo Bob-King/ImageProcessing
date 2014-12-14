@@ -1,6 +1,7 @@
 package com.mars.kjli.imageprocessing;
 
 import android.app.Activity;
+import android.app.DialogFragment;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -11,7 +12,9 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import java.io.File;
@@ -22,7 +25,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 
-public class ImageProcessingActivity extends Activity {
+public class ImageProcessingActivity extends Activity implements ImageFilterFactorPickerDialogFragment.ImageFilterFactorPickerDialogListener {
 
     public static final String EXTRA_IMAGE_URL = "com.mars.kjli.imageprocessing.IMAGE_URL";
     public static final String EXTRA_IMAGE_TYPE = "com.mars.kjli.imageprocessing.IMAGE_TYPE";
@@ -33,12 +36,14 @@ public class ImageProcessingActivity extends Activity {
     private static final int SELECT_IMAGE_REQUEST = 0;
     private Uri mUri;
     private Bitmap mBitmap;
+    private ProgressBar mProgressBar;
     private State mState = State.Uninitialized;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_image_processing);
+        mProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
         if (savedInstanceState != null) {
             String uri = savedInstanceState.getString(KEY_IMAGE_URI);
             if (uri != null) {
@@ -69,6 +74,8 @@ public class ImageProcessingActivity extends Activity {
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         Intent intent;
+        final int RADIUS_L = 50;
+        final int RADIUS_H = 15;
         switch (id) {
             case R.id.action_open:
                 if (mState != State.Working) {
@@ -93,6 +100,168 @@ public class ImageProcessingActivity extends Activity {
             case R.id.action_histogram_equalize:
                 if (mState == State.Idle) {
                     new HistogramEqualizeTask().execute(mBitmap);
+                }
+                return true;
+
+            case R.id.action_laplace_filter:
+                if (mState == State.Idle) {
+                    DialogFragment dialogFragment = new ImageFilterFactorPickerDialogFragment();
+                    dialogFragment.show(getFragmentManager(), "image_filter_factor_picker");
+                    return true;
+                }
+                return true;
+
+            case R.id.action_ideal_low_pass_filter:
+                if (mState == State.Idle) {
+                    new ImageFrequencyFilterTask(new FrequencyFilter() {
+                        @Override
+                        public void filter(float[][][] data) {
+                            final int M = data.length;
+                            final int N = data[0].length;
+                            final int D0 = (int) (Math.PI * RADIUS_L * RADIUS_L);
+
+                            for (int u = 0; u != M; ++u) {
+                                for (int v = 0; v != M; ++v) {
+                                    int dw = Math.abs(u - M / 2);
+                                    int dh = Math.abs(v - N / 2);
+                                    if (dw * dw + dh * dh > D0) {
+                                        data[u][v][0] = 0.0f;
+                                        data[u][v][1] = 0.0f;
+                                    }
+                                }
+                            }
+                        }
+                    }).execute(mBitmap);
+                }
+                return true;
+
+            case R.id.action_butterworth_low_pass_filter:
+                if (mState == State.Idle) {
+                    new ImageFrequencyFilterTask(new FrequencyFilter() {
+                        @Override
+                        public void filter(float[][][] data) {
+                            final int M = data.length;
+                            final int N = data[0].length;
+                            final float D0 = (float) (Math.PI * RADIUS_L * RADIUS_L);
+                            final int POWER = 1;
+
+                            for (int u = 0; u != M; ++u) {
+                                for (int v = 0; v != M; ++v) {
+                                    int dw = Math.abs(u - M / 2);
+                                    int dh = Math.abs(v - N / 2);
+                                    float f = dw * dw + dh * dh;
+                                    f /= D0;
+                                    f = (float) Math.pow(f, POWER);
+                                    f = 1.0f / (1.0f + f);
+                                    data[u][v][0] *= f;
+                                    data[u][v][1] *= f;
+                                }
+                            }
+                        }
+                    }).execute(mBitmap);
+                }
+                return true;
+
+            case R.id.action_gaussian_low_pass_filter:
+                if (mState == State.Idle) {
+                    new ImageFrequencyFilterTask(new FrequencyFilter() {
+                        @Override
+                        public void filter(float[][][] data) {
+                            final int M = data.length;
+                            final int N = data[0].length;
+                            final float D0 = (float) (Math.PI * RADIUS_L * RADIUS_L);
+
+                            for (int u = 0; u != M; ++u) {
+                                for (int v = 0; v != M; ++v) {
+                                    int dw = Math.abs(u - M / 2);
+                                    int dh = Math.abs(v - N / 2);
+                                    float f = dw * dw + dh * dh;
+                                    f /= 2 * D0;
+                                    f = (float) Math.pow(Math.E, -f);
+                                    data[u][v][0] *= f;
+                                    data[u][v][1] *= f;
+                                }
+                            }
+                        }
+                    }).execute(mBitmap);
+                }
+                return true;
+
+
+            case R.id.action_ideal_high_pass_filter:
+                if (mState == State.Idle) {
+                    new ImageFrequencyFilterTask(new FrequencyFilter() {
+                        @Override
+                        public void filter(float[][][] data) {
+                            final int M = data.length;
+                            final int N = data[0].length;
+                            final int D0 = (int) (Math.PI * RADIUS_H * RADIUS_H);
+
+                            for (int u = 0; u != M; ++u) {
+                                for (int v = 0; v != M; ++v) {
+                                    int dw = Math.abs(u - M / 2);
+                                    int dh = Math.abs(v - N / 2);
+                                    if (dw * dw + dh * dh <= D0) {
+                                        data[u][v][0] = 0.0f;
+                                        data[u][v][1] = 0.0f;
+                                    }
+                                }
+                            }
+                        }
+                    }).execute(mBitmap);
+                }
+                return true;
+
+            case R.id.action_butterworth_high_pass_filter:
+                if (mState == State.Idle) {
+                    new ImageFrequencyFilterTask(new FrequencyFilter() {
+                        @Override
+                        public void filter(float[][][] data) {
+                            final int M = data.length;
+                            final int N = data[0].length;
+                            final float D0 = (float) (Math.PI * RADIUS_H * RADIUS_H);
+                            final int POWER = 1;
+
+                            for (int u = 0; u != M; ++u) {
+                                for (int v = 0; v != M; ++v) {
+                                    int dw = Math.abs(u - M / 2);
+                                    int dh = Math.abs(v - N / 2);
+                                    float f = dw * dw + dh * dh;
+                                    f = D0 / f;
+                                    f = (float) Math.pow(f, POWER);
+                                    f = 1.0f / (1.0f + f);
+                                    data[u][v][0] *= f;
+                                    data[u][v][1] *= f;
+                                }
+                            }
+                        }
+                    }).execute(mBitmap);
+                }
+                return true;
+
+            case R.id.action_gaussian_high_pass_filter:
+                if (mState == State.Idle) {
+                    new ImageFrequencyFilterTask(new FrequencyFilter() {
+                        @Override
+                        public void filter(float[][][] data) {
+                            final int M = data.length;
+                            final int N = data[0].length;
+                            final float D0 = (float) (Math.PI * RADIUS_H * RADIUS_H);
+
+                            for (int u = 0; u != M; ++u) {
+                                for (int v = 0; v != M; ++v) {
+                                    int dw = Math.abs(u - M / 2);
+                                    int dh = Math.abs(v - N / 2);
+                                    float f = dw * dw + dh * dh;
+                                    f /= 2 * D0;
+                                    f = (float) Math.pow(Math.E, -f);
+                                    f = 1.0f - f;
+                                    data[u][v][0] *= f;
+                                    data[u][v][1] *= f;
+                                }
+                            }
+                        }
+                    }).execute(mBitmap);
                 }
                 return true;
 
@@ -159,6 +328,32 @@ public class ImageProcessingActivity extends Activity {
         new LoadImageTask().execute(uri);
     }
 
+    private void setState(State state) {
+        mState = state;
+        mProgressBar.setVisibility(mState == State.Working ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    @Override
+    public void OnFactorSelected(float factor) {
+        final int SCALE = 10;
+
+        int f = (int) (factor * SCALE) + 8 * SCALE;
+        int b = 1;
+
+        if ((f & 0xff) != 0) {
+            b = 10;
+        } else {
+            f /= 10;
+        }
+
+        new ImageSpaceFilterTask(new int[][]
+                {
+                        {-b, -b, -b},
+                        {-b, f, -b},
+                        {-b, -b, -b}
+                }).execute(mBitmap);
+    }
+
     private static enum State {
         Uninitialized, Idle, Working
     }
@@ -166,7 +361,7 @@ public class ImageProcessingActivity extends Activity {
     private class LoadImageTask extends AsyncTask<Uri, Integer, Bitmap> {
         @Override
         protected void onPreExecute() {
-            mState = State.Working;
+            setState(State.Working);
         }
 
         @Override
@@ -187,36 +382,14 @@ public class ImageProcessingActivity extends Activity {
                 imageView.setImageBitmap(mBitmap);
             }
 
-            mState = mBitmap != null ? State.Idle : State.Uninitialized;
+            setState(mBitmap != null ? State.Idle : State.Uninitialized);
         }
     }
 
-    private class HistogramEqualizeTask extends AsyncTask<Bitmap, Intent, Bitmap> {
+    private abstract class ImageProcessingTask extends AsyncTask<Bitmap, Integer, Bitmap> {
         @Override
         protected void onPreExecute() {
-            mState = State.Working;
-        }
-
-        @Override
-        protected Bitmap doInBackground(Bitmap... bitmaps) {
-            Bitmap bitmap = Bitmap.createBitmap(bitmaps[0].getWidth(), bitmaps[0].getHeight(), Bitmap.Config.ARGB_8888);
-            int[][] levels = new int[bitmap.getWidth()][bitmap.getHeight()];
-            for (int x = 0; x != levels.length; ++x) {
-                for (int y = 0; y != levels[x].length; ++y) {
-                    levels[x][y] = ImageLibrary.gray(bitmaps[0].getPixel(x, y));
-                }
-            }
-
-            ImageLibrary.histogramEqualize(levels);
-
-            for (int x = 0; x != levels.length; ++x) {
-                for (int y = 0; y != levels[x].length; ++y) {
-                    levels[x][y] = ImageLibrary.color(levels[x][y]);
-                    bitmap.setPixel(x, y, levels[x][y]);
-                }
-            }
-
-            return bitmap;
+            setState(State.Working);
         }
 
         @Override
@@ -226,7 +399,104 @@ public class ImageProcessingActivity extends Activity {
                 ImageView imageView = (ImageView) findViewById(R.id.image_view);
                 imageView.setImageBitmap(mBitmap);
             }
-            mState = State.Idle;
+            setState(State.Idle);
+        }
+    }
+
+    private class HistogramEqualizeTask extends ImageProcessingTask {
+        @Override
+        protected Bitmap doInBackground(Bitmap... bitmaps) {
+            Bitmap bitmap = Bitmap.createBitmap(bitmaps[0].getWidth(), bitmaps[0].getHeight(), Bitmap.Config.ARGB_8888);
+            int[][] gls = new int[bitmap.getWidth()][bitmap.getHeight()];
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.rgb2Gray(bitmaps[0].getPixel(x, y));
+                }
+            }
+
+            ImageLibrary.histogramEqualize(gls);
+
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.gray2Color(gls[x][y]);
+                    bitmap.setPixel(x, y, gls[x][y]);
+                }
+            }
+
+            return bitmap;
+        }
+    }
+
+    private class ImageSpaceFilterTask extends ImageProcessingTask {
+        private final int[][] mFilter;
+
+        ImageSpaceFilterTask(int[][] filter) {
+            mFilter = filter;
+        }
+
+        @Override
+        protected Bitmap doInBackground(Bitmap... bitmaps) {
+            Bitmap bitmap = Bitmap.createBitmap(bitmaps[0].getWidth(), bitmaps[0].getHeight(), Bitmap.Config.ARGB_8888);
+            int[][] gls = new int[bitmap.getWidth()][bitmap.getHeight()];
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.rgb2Gray(bitmaps[0].getPixel(x, y));
+                }
+            }
+
+            gls = ImageLibrary.imageFilter(gls, mFilter);
+
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    // Log.d(TAG, "<PIXELS>gls[" + x + "][" + y + "] = " + Integer.toHexString(gls[x][y]));
+                    gls[x][y] = ImageLibrary.gray2Color(gls[x][y]);
+                    // Log.d(TAG, ">PIXELS<gls[" + x + "][" + y + "] = " + Integer.toHexString(gls[x][y]));
+                    bitmap.setPixel(x, y, gls[x][y]);
+                }
+            }
+
+            return bitmap;
+        }
+    }
+
+    public abstract class FrequencyFilter {
+        public abstract void filter(float[][][] data);
+    }
+
+    private class ImageFrequencyFilterTask extends ImageProcessingTask {
+        private FrequencyFilter mFilter;
+
+        ImageFrequencyFilterTask(FrequencyFilter filter) {
+            mFilter = filter;
+        }
+
+        @Override
+        protected Bitmap doInBackground(Bitmap... bitmaps) {
+            Bitmap bitmap = Bitmap.createBitmap(bitmaps[0].getWidth(), bitmaps[0].getHeight(), Bitmap.Config.ARGB_8888);
+            int[][] gls = new int[bitmap.getWidth()][bitmap.getHeight()];
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.rgb2Gray(bitmaps[0].getPixel(x, y));
+                    if (x + y % 2 == 1) {
+                        gls[x][y] = -gls[x][y];
+                    }
+                }
+            }
+
+            float[][][] data = ImageLibrary.dft(gls);
+
+            mFilter.filter(data);
+
+            gls = ImageLibrary.idft(data);
+
+            for (int x = 0; x != gls.length; ++x) {
+                for (int y = 0; y != gls[x].length; ++y) {
+                    gls[x][y] = ImageLibrary.gray2Color(gls[x][y]);
+                    bitmap.setPixel(x, y, gls[x][y]);
+                }
+            }
+
+            return bitmap;
         }
     }
 }

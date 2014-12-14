@@ -28,6 +28,48 @@
         android:title="@string/action_histogram_equalize"/>
 
     <item
+        android:id="@+id/action_laplace_filter"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_laplace_filter"/>
+
+    <item
+        android:id="@+id/action_ideal_low_pass_filter"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_ideal_low_pass_filter"/>
+
+    <item
+        android:id="@+id/action_butterworth_low_pass_filter"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_butterworth_low_pass_filter"/>
+
+    <item
+        android:id="@+id/action_gaussian_low_pass_filter"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_gaussian_low_pass_filter"/>
+
+    <item
+        android:id="@+id/action_ideal_high_pass_filter"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_ideal_high_pass_filter"/>
+
+    <item
+        android:id="@+id/action_butterworth_high_pass_filter"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_butterworth_high_pass_filter"/>
+
+    <item
+        android:id="@+id/action_gaussian_high_pass_filter"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_gaussian_high_pass_filter"/>
+
+    <item
         android:id="@+id/action_about"
         android:orderInCategory="100"
         android:showAsAction="never"
